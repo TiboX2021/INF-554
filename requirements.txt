@@ -2,6 +2,14 @@
 jsonargparse
 sentence-transformers
 
+# Recommanded by the kaggle
+scikit-learn
+pytorch
+nltk
+gensim
+fasttext
+
+
 # Other dependencies
 numpy
 matplotlib
