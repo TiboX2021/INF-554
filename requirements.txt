@@ -1,0 +1,8 @@
+# Prerequisites in the kaggle
+jsonargparse
+sentence-transformers
+
+# Other dependencies
+numpy
+matplotlib
+ipykernel

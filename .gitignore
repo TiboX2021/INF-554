@@ -1,0 +1,5 @@
+# Always ignore pycache
+__pycache__
+
+# Ignore venv
+venv/
