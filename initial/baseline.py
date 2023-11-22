@@ -4,8 +4,8 @@ from pathlib import Path
 def flatten(list_of_list):
     return [item for sublist in list_of_list for item in sublist]
 
-path_to_training = Path("training")
-path_to_test = Path("test")
+path_to_training = Path("initial") / Path("training")
+path_to_test = Path("initial") / Path("test")
 
 #####
 # training and test sets of transcription ids
@@ -29,7 +29,7 @@ for transcription_id in test_set:
     
     test_labels[transcription_id] = [1] * len(transcription)
 
-with open("test_labels_naive_baseline.json", "w") as file:
+with open(Path("initial") / "test_labels_naive_baseline.json", "w") as file:
     json.dump(test_labels, file, indent=4)
 
 #####
@@ -40,7 +40,7 @@ from sentence_transformers import SentenceTransformer
 bert = SentenceTransformer('all-MiniLM-L6-v2')
 
 y_training = []
-with open("training_labels.json", "r") as file:
+with open(Path("initial") / "training_labels.json", "r") as file:
     training_labels = json.load(file)
 X_training = []
 for transcription_id in training_set:
@@ -71,5 +71,5 @@ for transcription_id in test_set:
     y_test = clf.predict(X_test)
     test_labels[transcription_id] = y_test.tolist()
 
-with open("test_labels_text_baseline.json", "w") as file:
+with open(Path("initial") / "test_labels_text_baseline.json", "w") as file:
     json.dump(test_labels, file, indent=4)
