@@ -1,5 +1,7 @@
 # INF554 Data Challenge
 
+https://www.kaggle.com/competitions/inf554-extractive-summarization-2023/data
+
 ## Installation
 
 Using python virtual environment :
@@ -18,6 +20,7 @@ pip install -r requirements.txt
 ```
 
 ## File structure
+
 ```bash
 ├── .vscode         # VSCode configuration
 │
