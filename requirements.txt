@@ -4,9 +4,11 @@ sentence-transformers
 
 # Recommanded by the kaggle
 scikit-learn
-pytorch
+torch
 nltk
 gensim
+
+# Also see https://fasttext.cc/docs/en/support.html if this fails
 fasttext
 
 

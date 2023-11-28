@@ -3,3 +3,6 @@ __pycache__
 
 # Ignore venv
 venv/
+
+# Ignore fastText installation from source
+fastText/
