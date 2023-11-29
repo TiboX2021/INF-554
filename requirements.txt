@@ -7,6 +7,7 @@ scikit-learn
 torch
 nltk
 gensim
+networkx
 
 # Also see https://fasttext.cc/docs/en/support.html if this fails
 fasttext
@@ -15,4 +16,5 @@ fasttext
 # Other dependencies
 numpy
 matplotlib
+pandas
 ipykernel
