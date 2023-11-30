@@ -24,9 +24,15 @@ pip install -r requirements.txt
 ```bash
 ├── .vscode         # VSCode configuration
 │
-├── initial         # Files from the kaggle challenge
-│   ├── test        # Data for test
+├── data            # Datasets
+│   ├── test        # Data for testing
 │   └── training    # Data for training
+│
+├── initial         # Some files
+│
+├── labels          # Computed labels + true training labels
+│   ├── test        # Labels for testing
+│   └── training    # Labels for training
 │
 └── src             # Python script dependencies
 ```
