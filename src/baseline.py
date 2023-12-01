@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from loader import get_full_training_sets, get_test_iterator
+from loader import get_full_training_sets, get_test_data_iterator
 from sentence_transformers import SentenceTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
@@ -13,6 +13,7 @@ from sklearn.tree import DecisionTreeClassifier
 # XXX sentence-transformer is a state-of-the-art text embedder package
 # This one (all-MiniLM-L6-v2) embeds each string into 384 float32 dimensions
 # TODO : if we reuse the same embedding, precompute it into a txt file and load it via loadfromtxt + torch tensors
+# TODO : faire des fonctions pour ça dans loader ! Un write, un load.
 bert = SentenceTransformer("all-MiniLM-L6-v2")
 
 # Extract all training data
@@ -55,7 +56,7 @@ print("Score on the 20% validation set:", score)
 # Producing test labels file
 print("Producing test labels file...")
 test_labels = {}
-for transcription_id, utterances in get_test_iterator():
+for transcription_id, utterances in get_test_data_iterator():
     X_test = []
     for utterance in utterances:
         X_test.append(f"{utterance['speaker']}: {utterance['text']}")
