@@ -89,8 +89,13 @@ if __name__ == "__main__":
     X_train = bert.encode(X_train, show_progress_bar=True)
     X_test = bert.encode(X_test, show_progress_bar=True)
 
-    # TODO : move bert to gpu ? Il faut transformer les labels en tensors !
-    # TODO : move the labels also ? Voir comment faire ça...
+    # Move encoded sentences to float torch tensors to gpu
+    X_train = torch.FloatTensor(X_train).to(device)
+    X_test = torch.FloatTensor(X_test).to(device)
+
+    # Move labels to float tensors + add a secondary acix for loss computing
+    y_train = torch.FloatTensor(y_train).to(device).view(-1, 1)
+    y_test = torch.FloatTensor(y_test).to(device).view(-1, 1)
 
     # Instanciate model
     model = Lab9_GCN(384, 256, 32, 1, 0.5).to(device)
@@ -102,17 +107,14 @@ if __name__ == "__main__":
         model.train()
         optimizer.zero_grad()
         output, _ = model(X_train, train_adjacency_matrix)
+
         loss = loss_function(output, y_train)
-        loss.backwards()
+        loss.backward()
         optimizer.step()
 
         # Evaluate performance on training data
-        predicted = output.ge(0.5).view(-1)
-        accuracy = (
-            (predicted.type(torch.FloatTensor).cpu() == y_train.type(torch.FloatTensor))
-            .sum()
-            .item()
-        )
+        predicted = output.ge(0.5).type(torch.FloatTensor)
+        accuracy = (predicted.cpu() == y_train.cpu()).sum().item() / output.size()[0]
         print("Train accuracy for epoch", epoch, "is", round(accuracy, 2))
 
     # Test on validation data

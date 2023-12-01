@@ -207,11 +207,11 @@ def get_train_test_split_sets(test_size: float = 0.2, random_state: int | None =
         # Build edges
         with open(training_data_path / f"{transcription_id}.txt", "r") as file:
             edges = np.genfromtxt(file, dtype=np.int32)
-            train_edges.append((transcription_id, edges))
+            train_edges.append((transcription_id, edges[:, [0, 2]]))
 
     # Create the testing data
     for transcription_id in test_files:
-        with open(testing_data_path / f"{transcription_id}.json", "r") as file:
+        with open(training_data_path / f"{transcription_id}.json", "r") as file:
             transcription: list[Utterance] = json.load(file)
             for utterance in transcription:
                 # Agregate the speaker ID into the utterance text (cf baseline example)
@@ -219,9 +219,9 @@ def get_train_test_split_sets(test_size: float = 0.2, random_state: int | None =
             y_test.extend(training_labels[transcription_id])
 
         # Build edges
-        with open(testing_data_path / f"{transcription_id}.txt", "r") as file:
+        with open(training_data_path / f"{transcription_id}.txt", "r") as file:
             edges = np.genfromtxt(file, dtype=np.int32)
-            test_edges.append((transcription_id, edges))
+            test_edges.append((transcription_id, edges[:, [0, 2]]))
 
     train_adjacency_matrix = build_adjacency_from_edges(train_edges)
     test_adjacency_matrix = build_adjacency_from_edges(test_edges)
