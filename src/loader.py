@@ -160,7 +160,7 @@ def get_full_training_sets():
         for transcription_id, transcription in get_training_data_iterator():
             for utterance in transcription:
                 # Agregate the speaker ID into the utterance text (cf baseline example)
-                X_train.append(f"{utterance['speaker']}: {utterance['text']}")
+                X_train.append(f"{utterance['speaker']} {utterance['text']}")
             y_train.extend(training_labels[transcription_id])
 
     return X_train, y_train

@@ -6,3 +6,7 @@ venv/
 
 # Ignore fastText installation from source
 fastText/
+
+# Ignore the dictionary outputs
+dictionary.txt
+word_counts.json

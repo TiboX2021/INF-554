@@ -1,5 +1,4 @@
-import json
-
+import numpy as np
 from loader import get_full_training_sets
 
 # Ratio of positive utterances (for normalization of word occurrences)
@@ -25,8 +24,9 @@ def words_label_count():
     for i, (utterance, label) in enumerate(zip(X_train, y_train)):
         positive_utterances += label
 
-        words = utterance.split(sep=" ")
-        print(f"\rUtterance {i+1} of - {n}", end="")
+        words = np.char.lower(utterance.split(sep=" "))
+
+        print(f"\rUtterance {i+1} of - {n}", end="", flush=True)
 
         for word in words:
             if word not in word_counts:
@@ -42,8 +42,18 @@ def words_label_count():
     return word_counts
 
 
-if __name__ == "__main__":
-    word_counts = words_label_count()
+# TODO : create function to generate a training dictionary from training data
 
-    with open("word_counts.json", "w") as file:
-        json.dump(word_counts, file, indent=2)
+# TODO : test the embedder performance
+
+
+class DictionaryEmbedder:
+    pass
+
+
+if __name__ == "__main__":
+    pass
+    # word_counts = words_label_count()
+
+    # with open("word_counts.json", "w") as file:
+    #     json.dump(word_counts, file, indent=2)
