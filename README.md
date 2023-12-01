@@ -24,9 +24,30 @@ pip install -r requirements.txt
 ```bash
 ├── .vscode         # VSCode configuration
 │
-├── initial         # Files from the kaggle challenge
-│   ├── test        # Data for test
+├── data            # Datasets
+│   ├── test        # Data for testing
 │   └── training    # Data for training
 │
+├── initial         # Some files
+│
+├── labels          # Computed labels + true training labels
+│   ├── test        # Labels for testing
+│   └── training    # Labels for training
+│
 └── src             # Python script dependencies
+```
+
+## Usage
+
+Run the baseline text-only (no graph) model with the following command.
+It will test it against training and validation data, and write to labels/train the estimated test labels.
+
+```bash
+python src/baseline.py
+```
+
+Use the following command to display help about the function that generates a submission file.
+
+```bash
+python src/make_submission.py -h
 ```

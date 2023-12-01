@@ -1,0 +1,6 @@
+# By default, ignore all csv outputs
+*.csv
+
+# Unignore the default naive baseline submission
+!submission_naive_baseline.csv
+
