@@ -1,6 +1,9 @@
+from typing import Iterable
+
 import numpy as np
 import numpy.typing as npt
 from loader import get_full_training_sets
+from tqdm import tqdm
 
 # Ratio of positive utterances (for normalization of word occurrences)
 POSITIVE_RATIO = 0.1830274
@@ -119,11 +122,61 @@ def dictionary_from_data(
     return chosen_words
 
 
-# TODO : test the embedder performance
-
-
 class DictionaryEmbedder:
-    pass
+    """A custom embedder that uses a dictionary to embed utterances into a vector space.
+    The vector space if of size DICTIONARY_SIZE. Utterances are embedded by counting the occurrences of each word in the dictionary.
+
+    Usage:
+
+    embedder = DictionaryEmbedder(dictionary)
+    vector = embedder.encode("This is an utterance")
+    vectors = embedder.encode_batch(["This is an utterance", "This is another one"])
+    """
+
+    dictionary: npt.NDArray[np.str_]
+    dictionary_index_lookup: dict[str, int]
+
+    def __init__(self, dictionary: npt.NDArray[np.str_] | str):
+        """Create a dictionary embedder
+
+        Params:
+            - dictionary : a numpy array of strings (dictionary) or the path to a text file containing the dictionary
+        """
+        if isinstance(dictionary, str):
+            # Load the dictionary from the file
+            with open(dictionary, "r") as f:
+                self.dictionary = np.genfromtxt(f, dtype=np.str_)
+        else:
+            self.dictionary = dictionary
+
+        self.dictionary_index_lookup = {
+            word: i for i, word in enumerate(self.dictionary)
+        }
+
+    def encode(self, string: str):
+        """Encode a string using the given dictionary."""
+
+        vector = np.zeros(len(self.dictionary), dtype=np.float32)
+
+        words = np.char.lower(string.split(sep=" "))
+        for word in words:
+            if word in self.dictionary_index_lookup:
+                vector[self.dictionary_index_lookup[word]] += 1
+
+        return vector
+
+    def encode_batch(self, strings: Iterable[str], show_progress: bool = True):
+        """Encode a batch of strings using the given dictionary."""
+        vectors = []
+
+        for string in tqdm(strings, disable=not show_progress):
+            vectors.append(self.encode(string))
+
+        return vectors
+
+    def size(self) -> int:
+        """Return the size of the dictionary, which is the size of the embedded vector space."""
+        return len(self.dictionary)
 
 
 if __name__ == "__main__":
@@ -141,4 +194,9 @@ if __name__ == "__main__":
 
     words = dictionary_from_data(X_train, y_train)
 
-    print(words)
+    embedder = DictionaryEmbedder(words)
+    print("Embedder size :", embedder.size())
+
+    print("Embedding", len(X_train), "utterances...")
+    result = embedder.encode_batch(X_train)
+    print("Done.")
