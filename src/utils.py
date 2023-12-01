@@ -1,3 +1,5 @@
+from typing import Iterable
+
 import numpy as np
 import scipy.sparse as sp
 import torch
@@ -5,6 +7,30 @@ import torch
 ############################################################################################################
 #                                      TORCH CONVERSION FUNCTIONS                                          #
 ############################################################################################################
+
+
+def build_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]]):
+    """Build an adjacency matrix from a list of edge datasets"""
+    node_count = 0
+    total_edges = np.array([], dtype=np.int32).reshape(0, 2)
+
+    for _, edges in edges_iterable:
+        # Offset the node ids in relation to the previous subgraphs
+        max_index = edges.max() + 1
+        edges += node_count
+        node_count += max_index
+
+        # Add the edges to the total edges array
+        total_edges = np.concatenate((total_edges, edges))
+
+    # Create the adjacency matrix
+    adjacency_matrix = sp.coo_matrix(
+        (np.ones(total_edges.shape[0]), (total_edges[:, 0], total_edges[:, 1])),
+        shape=(node_count, node_count),
+        dtype=np.float32,
+    )
+
+    return adjacency_matrix
 
 
 def normalise_adjacency(matrix: sp.coo_matrix) -> sp.csr_matrix:
