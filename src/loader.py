@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
-import scipy.sparse as sp
 import torch
+from utils import build_adjacency_from_edges
 
 
 class Utterance(TypedDict):
@@ -109,30 +109,6 @@ def get_test_data_iterator():
             yield transcription_id, data
 
 
-def get_full_training_sets():
-    """Aggregates all training data and labels. Only useful for basic text-only models (like the baseline text one)
-
-    Returns
-        - X_train : list[str] - A list of all utterances from every training transcription.
-        - y_train : list[int] - A list of all labels (1 = mportant | 0 = not important) from every training transcription.
-    """
-    X_train: list[str] = []
-    y_train: list[int] = []
-
-    # Iterate over training labels, and fill X_train, y_train in the same order
-    with open(training_labels_path / "training_labels.json", "r") as file:
-        training_labels = json.load(file)
-
-        # Iterate over training data and fill X_train
-        for transcription_id, transcription in get_training_data_iterator():
-            for utterance in transcription:
-                # Agregate the speaker ID into the utterance text (cf baseline example)
-                X_train.append(f"{utterance['speaker']}: {utterance['text']}")
-            y_train.extend(training_labels[transcription_id])
-
-    return X_train, y_train
-
-
 def get_training_edges_iterator():
     """Returns an iterator over the training datasets data, that can be iterated over using a for loop
 
@@ -161,83 +137,121 @@ def get_test_edges_iterator():
             yield transcription_id, edges[:, [0, 2]]
 
 
-def get_training_adjacency_matrix():
-    """Returns a sparse adjacency matrix for the full training dataset"""
-    node_count = 0
-    total_edges = np.array([], dtype=np.int32).reshape(0, 2)
+############################################################################################################
+#                                            DATASET FULL LOADERS                                          #
+############################################################################################################
 
-    for _, edges in get_training_edges_iterator():
-        # Offset the node ids in relation to the previous subgraphs
-        max_index = edges.max() + 1
-        edges += node_count
-        node_count += max_index
 
-        # Add the edges to the total edges array
-        total_edges = np.concatenate((total_edges, edges))
+def get_full_training_sets():
+    """Aggregates all training data and labels. Only useful for basic text-only models (like the baseline text one)
 
-    # Create the adjacency matrix
-    adjacency_matrix = sp.coo_matrix(
-        (np.ones(total_edges.shape[0]), (total_edges[:, 0], total_edges[:, 1])),
-        shape=(node_count, node_count),
-        dtype=np.float32,
+    Returns
+        - X_train : list[str] - A list of all utterances from every training transcription.
+        - y_train : list[int] - A list of all labels (1 = mportant | 0 = not important) from every training transcription.
+    """
+    X_train: list[str] = []
+    y_train: list[int] = []
+
+    # Iterate over training labels, and fill X_train, y_train in the same order
+    with open(training_labels_path / "training_labels.json", "r") as file:
+        training_labels = json.load(file)
+
+        # Iterate over training data and fill X_train
+        for transcription_id, transcription in get_training_data_iterator():
+            for utterance in transcription:
+                # Agregate the speaker ID into the utterance text (cf baseline example)
+                X_train.append(f"{utterance['speaker']}: {utterance['text']}")
+            y_train.extend(training_labels[transcription_id])
+
+    return X_train, y_train
+
+
+def get_train_test_split_sets(test_size: float = 0.2, random_state: int | None = None):
+    """Returns a training dataset and a testing dataset taken from the original training dataset,
+    in order to be able to test with labels that we have.
+
+    The split is not performed randomly on the agregated data, but on the file names.
+    This way, we preserve each subdataset's graph integrity
+    """
+    from sklearn.model_selection import train_test_split
+
+    # Perform a random splitting of the training set file names
+    train_files, test_files = train_test_split(
+        training_set, test_size=test_size, random_state=random_state
     )
 
-    return adjacency_matrix
+    # Build individual adjacency matrixes and label sets
+    train_edges: list[tuple[str, np.ndarray]] = []
+    test_edges: list[tuple[str, np.ndarray]] = []
+
+    X_train: list[str] = []
+    X_test: list[str] = []
+
+    y_train: list[int] = []
+    y_test: list[int] = []
+
+    # Load all training labels
+    with open(training_labels_path / "training_labels.json", "r") as file:
+        training_labels = json.load(file)
+
+    # Create the training data
+    for transcription_id in train_files:
+        # Build text and labels
+        with open(training_data_path / f"{transcription_id}.json", "r") as file:
+            transcription: list[Utterance] = json.load(file)
+            for utterance in transcription:
+                # Agregate the speaker ID into the utterance text (cf baseline example)
+                X_train.append(f"{utterance['speaker']}: {utterance['text']}")
+            y_train.extend(training_labels[transcription_id])
+
+        # Build edges
+        with open(training_data_path / f"{transcription_id}.txt", "r") as file:
+            edges = np.genfromtxt(file, dtype=np.int32)
+            train_edges.append((transcription_id, edges))
+
+    # Create the testing data
+    for transcription_id in test_files:
+        with open(testing_data_path / f"{transcription_id}.json", "r") as file:
+            transcription: list[Utterance] = json.load(file)
+            for utterance in transcription:
+                # Agregate the speaker ID into the utterance text (cf baseline example)
+                X_test.append(f"{utterance['speaker']}: {utterance['text']}")
+            y_test.extend(training_labels[transcription_id])
+
+        # Build edges
+        with open(testing_data_path / f"{transcription_id}.txt", "r") as file:
+            edges = np.genfromtxt(file, dtype=np.int32)
+            test_edges.append((transcription_id, edges))
+
+    train_adjacency_matrix = build_adjacency_from_edges(train_edges)
+    test_adjacency_matrix = build_adjacency_from_edges(test_edges)
+
+    return (
+        X_train,
+        y_train,
+        train_adjacency_matrix,
+        X_test,
+        y_test,
+        test_adjacency_matrix,
+    )
+
+
+def get_training_adjacency_matrix():
+    """Returns a sparse adjacency matrix for the full training dataset"""
+    return build_adjacency_from_edges(get_training_edges_iterator())
 
 
 def get_test_adjacency_matrix():
     """Returns a sparse adjacency matrix for the full test dataset"""
-    node_count = 0
-    total_edges = np.array([], dtype=np.int32).reshape(0, 2)
-
-    for _, edges in get_test_edges_iterator():
-        # Offset the node ids in relation to the previous subgraphs
-        max_index = edges.max() + 1
-        edges += node_count
-        node_count += max_index
-
-        # Add the edges to the total edges array
-        total_edges = np.concatenate((total_edges, edges))
-
-    # Create the adjacency matrix
-    adjacency_matrix = sp.coo_matrix(
-        (np.ones(total_edges.shape[0]), (total_edges[:, 0], total_edges[:, 1])),
-        shape=(node_count, node_count),
-        dtype=np.float32,
-    )
-
-    return adjacency_matrix
+    return build_adjacency_from_edges(get_test_edges_iterator())
 
 
-# TODO : also allow to lead edge labels for a more performant model ?
-
-############################################################################################################
-#                                      TORCH CONVERSION FUNCTIONS                                          #
-############################################################################################################
+def get_device():
+    """Get torch device"""
+    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def normalise_adjacency(matrix: sp.coo_matrix) -> sp.csr_matrix:
-    """Normalize and preprocess a graph adjacency matrix for use in a GCN model"""
-    n = matrix.shape[0]
-    diag = matrix.sum(0)
-    diag = 1 / (np.sqrt(diag + 1))
-    sparse_diag = sp.diags(np.squeeze(np.asarray(diag)))
-    normalized_matrix = sparse_diag @ (matrix + sp.eye(n)) @ sparse_diag
-
-    return normalized_matrix
-
-
-def csr_to_coo_matrix(matrix: sp.csr_matrix) -> sp.coo_matrix:
-    return matrix.tocoo().astype(np.float32)  # type: ignore
-
-
-def sparse_to_torch_sparse(matrix: sp.coo_matrix) -> torch.Tensor:
-    """Converts a sparse SciPy matrix to a sparse PyTorch tensor"""
-
-    indices = torch.from_numpy(np.vstack((matrix.row, matrix.col)).astype(np.int64))
-    values = torch.from_numpy(matrix.data)
-    shape = torch.Size(matrix.shape)
-    return torch.sparse.FloatTensor(indices, values, shape)  # type: ignore
+# TODO : also allow to read edge labels for a more performant model ?
 
 
 if __name__ == "__main__":
