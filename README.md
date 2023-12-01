@@ -45,3 +45,9 @@ It will test it against training and validation data, and write to labels/train 
 ```bash
 python src/baseline.py
 ```
+
+Use the following command to display help about the function that generates a submission file.
+
+```bash
+python src/make_submission.py -h
+```
