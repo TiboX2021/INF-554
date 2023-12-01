@@ -6,8 +6,10 @@ from loader import (
     get_train_test_split_sets,
 )
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics import confusion_matrix, f1_score
 from torch import nn
 from utils import full_adjacency_preprocessing
+from visualize import detach_tensor
 
 
 class Lab9_GCN(nn.Module):
@@ -117,7 +119,35 @@ if __name__ == "__main__":
         accuracy = (predicted.cpu() == y_train.cpu()).sum().item() / output.size()[0]
         print("Train accuracy for epoch", epoch, "is", round(accuracy, 2))
 
+    # Final test on training data
+    train_output, train_embeddings = model(X_train, train_adjacency_matrix)
+    predicted = train_output.ge(0.5).type(torch.FloatTensor)
+    accuracy = (predicted.cpu() == y_train.cpu()).sum().item() / train_output.size()[0]
+    print("Accuracy on train data is", round(accuracy, 2))
+
     # Test on validation data
-    # TODO (watch score, +display embeddings)
+    test_output, test_embeddings = model(X_test, test_adjacency_matrix)
+    predicted = test_output.ge(0.5).type(torch.FloatTensor)
+    accuracy = (predicted.cpu() == y_test.cpu()).sum().item() / test_output.size()[0]
+    print("Accuracy on test data is", round(accuracy, 2))
+
+    # Display confusion matrixes
+    np_y_train = detach_tensor(y_train).reshape(-1)
+    np_y_test = detach_tensor(y_test).reshape(-1)
+    np_train_output = detach_tensor(train_output.ge(0.5)).reshape(-1)
+    np_test_output = detach_tensor(test_output.ge(0.5)).reshape(-1)
+
+    # Confusion matrix on training data
+    print("Confusion matrix on training data")
+    train_confusion = confusion_matrix(np_y_train, np_train_output)
+    print(train_confusion)
+
+    # Confusion matrix on test data
+    print("Confusion matrix on test data")
+    test_confusion = confusion_matrix(np_y_test, np_test_output)
+    print(test_confusion)
+
+    print("F1 score on training data :", f1_score(np_y_train, np_train_output))
+    print("F1 score on test data :", f1_score(np_y_test, np_test_output))
 
     print("Done !")
