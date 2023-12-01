@@ -84,13 +84,14 @@ def dictionary_from_data(
     positive_ratio /= n
 
     print()
+    print("Positive utterances ratio :", positive_ratio)
     print("Found", len(word_counts), "unique words")
 
     # Do the word analysis (cf word_embedding.pynb)
     # Build numpy representations
     counts = np.array(list(word_counts.values()), dtype=np.float32)
     occurrences = counts.sum(axis=1)
-    counts[:, 0] /= occurrences  # Normalize the negative counts
+    counts[:, 0] *= positive_ratio  # Normalize the negative counts
     np_labels = np.array(list(word_counts.keys()))
 
     # Percentile filtering
