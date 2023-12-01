@@ -17,13 +17,20 @@ def detach_tensor(tensor: Tensor) -> np.ndarray:
 
 def plot_2D_embeddings(
     embeddings: np.ndarray, labels: list[str] | npt.NDArray[np.str_]
-):
-    """Plot a numpy embedding
+) -> None:
+    """Plot a numpy embedding.
+    Note : because the PCA and TSNE models take a lot of time to be fitted, this function will
+    randomly select a maximum of 1000 embeddings to plot.
 
     Params :
         - embeddings (EMBEDDING_COUNT, FEATURES) : matrix of vector embeddings
         - labels (EMBEDDING_COUNT) : list of labels for the embeddings
     """
+    # Random extraction :
+    if len(embeddings) > 1000:
+        indices = np.random.choice(len(embeddings), 1000)
+        embeddings = embeddings[indices]
+        labels = np.array(labels)[indices]
 
     # Extract the 10 most significant dimensions from the embedding
     pca = PCA(n_components=10)

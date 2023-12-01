@@ -9,7 +9,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics import confusion_matrix, f1_score
 from torch import nn
 from utils import full_adjacency_preprocessing
-from visualize import detach_tensor
+from visualize import detach_tensor, plot_2D_embeddings
 
 
 class Lab9_GCN(nn.Module):
@@ -149,5 +149,16 @@ if __name__ == "__main__":
 
     print("F1 score on training data :", f1_score(np_y_train, np_train_output))
     print("F1 score on test data :", f1_score(np_y_test, np_test_output))
+
+    # Print embeddings
+    print("Plotting embeddings...")
+    plot_2D_embeddings(
+        detach_tensor(train_embeddings),
+        detach_tensor(y_train).reshape(-1),
+    )
+    plot_2D_embeddings(
+        detach_tensor(test_embeddings),
+        detach_tensor(y_test).reshape(-1),
+    )
 
     print("Done !")
