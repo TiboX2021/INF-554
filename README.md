@@ -36,3 +36,12 @@ pip install -r requirements.txt
 │
 └── src             # Python script dependencies
 ```
+
+## Usage
+
+Run the baseline text-only (no graph) model with the following command.
+It will test it against training and validation data, and write to labels/train the estimated test labels.
+
+```bash
+python src/baseline.py
+```
