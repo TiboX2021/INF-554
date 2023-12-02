@@ -113,7 +113,9 @@ def dictionary_from_data(
     scores = (filtered_counts[:, 1] - filtered_counts[:, 0]) / (
         filtered_counts[:, 1] + filtered_counts[:, 0]
     )
-    chosen_words = filtered_labels[scores > score_threshold]
+    score_mask = np.logical_or(scores > score_threshold, scores < -score_threshold)
+    # score_mask = scores > score_threshold
+    chosen_words = filtered_labels[score_mask]
     print("Final dictionary size :", len(chosen_words))
 
     return chosen_words
@@ -172,7 +174,7 @@ class DictionaryEmbedder:
         for string in tqdm(strings, disable=not show_progress):
             vectors.append(self.encode(string))
 
-        return vectors
+        return np.array(vectors)
 
     def size(self) -> int:
         """Return the size of the dictionary, which is the size of the embedded vector space."""

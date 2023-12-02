@@ -50,7 +50,6 @@ class Lab9_GCN(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor, adjacency_matrix: torch.Tensor):
-        # Please insert your code for Task 5 here
         z0 = self.fc1(x)
         z0 = self.relu(torch.mm(adjacency_matrix, z0))
         z0 = self.dropout(z0)
@@ -118,6 +117,9 @@ if __name__ == "__main__":
         predicted = output.ge(0.5).type(torch.FloatTensor)
         accuracy = (predicted.cpu() == y_train.cpu()).sum().item() / output.size()[0]
         print("Train accuracy for epoch", epoch, "is", round(accuracy, 2))
+
+    # Set model in evaluation mode (disable dropout)
+    model.eval()
 
     # Final test on training data
     train_output, train_embeddings = model(X_train, train_adjacency_matrix)
