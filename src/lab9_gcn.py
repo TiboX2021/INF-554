@@ -50,7 +50,6 @@ class Lab9_GCN(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor, adjacency_matrix: torch.Tensor):
-        # Please insert your code for Task 5 here
         z0 = self.fc1(x)
         z0 = self.relu(torch.mm(adjacency_matrix, z0))
         z0 = self.dropout(z0)
