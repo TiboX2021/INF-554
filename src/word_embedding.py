@@ -113,8 +113,8 @@ def dictionary_from_data(
     scores = (filtered_counts[:, 1] - filtered_counts[:, 0]) / (
         filtered_counts[:, 1] + filtered_counts[:, 0]
     )
-    # score_mask = np.logical_or(scores > score_threshold, scores < -score_threshold)
-    score_mask = scores > score_threshold
+    score_mask = np.logical_or(scores > score_threshold, scores < -score_threshold)
+    # score_mask = scores > score_threshold
     chosen_words = filtered_labels[score_mask]
     print("Final dictionary size :", len(chosen_words))
 

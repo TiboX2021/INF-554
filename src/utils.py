@@ -138,9 +138,9 @@ def test_model(
 
     # Sets model in evaluation mode (disable dropout, etc)
     model.eval()
-
-    # Forward pass
-    output, _embeddings = model(X_test)
+    with torch.no_grad():
+        # Forward pass
+        output, _embeddings = model(X_test)
 
     # Detach tensors and convert them to numpy arrays
     detach_output = detach_tensor(output.ge(0.5)).reshape(-1)
@@ -160,3 +160,4 @@ def test_model(
     # Plot embeddings
     if show_embeddings:
         plot_2D_embeddings(detach_tensor(_embeddings), detach_y_test)
+    model.train()

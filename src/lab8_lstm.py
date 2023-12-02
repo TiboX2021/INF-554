@@ -20,12 +20,22 @@ class Lab8_LSTM(nn.Module):
         super().__init__()
         # Layers
         self.lstm = nn.LSTM(
-            embed_dim, hidden_dim, num_layers=1, bidirectional=False, batch_first=True
+            embed_dim,
+            hidden_dim,
+            num_layers=2,
+            bidirectional=False,
+            batch_first=True,
+            dropout=0.5,
         )
+        self.test = nn.Linear(embed_dim, hidden_dim)
         self.fc = nn.Linear(hidden_dim, num_class)
+        self.layer_norm = nn.LayerNorm(hidden_dim)
 
     def forward(self, text: torch.Tensor):
         output, _ = self.lstm(text)
+        # output = self.test(text)
+
+        output = self.layer_norm(output)
 
         x = self.fc(output)  # Linear layer
 
@@ -56,6 +66,7 @@ if __name__ == "__main__":
     words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.5)
     embedder = DictionaryEmbedder(words)
     bert = SentenceTransformer("all-MiniLM-L6-v2")
+    # bert = SentenceTransformer("all-mpnet-base-v2")
 
     # Encode all data
     X_train_bert = bert.encode(X_train, show_progress_bar=True)
@@ -85,11 +96,16 @@ if __name__ == "__main__":
     # Loss function and optimizers
     criterion = nn.BCELoss()
     learning_rate = 0.01
-    bert_optimizer = torch.optim.Adam(bert_lstm.parameters(), lr=learning_rate)
-    dict_optimizer = torch.optim.Adam(dict_lstm.parameters(), lr=learning_rate)
+    weight_decay = 1e-4
+    bert_optimizer = torch.optim.Adam(
+        bert_lstm.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
+    dict_optimizer = torch.optim.Adam(
+        dict_lstm.parameters(), lr=learning_rate, weight_decay=weight_decay
+    )
 
     # Train the models
-    epochs = 300
+    epochs = 200
     print("Training BERT LSTM model...")
     train_model(
         bert_lstm,
