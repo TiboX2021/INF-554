@@ -1,15 +1,6 @@
 import torch
 import torch.nn.functional as F
-import torch.optim as optim
-from loader import (
-    get_device,
-    get_train_test_split_sets,
-)
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics import confusion_matrix, f1_score
 from torch import nn
-from utils import full_adjacency_preprocessing
-from visualize import detach_tensor, plot_2D_embeddings
 
 
 class Lab8_LSTM(nn.Module):
@@ -55,5 +46,57 @@ class Lab8_LSTM(nn.Module):
 
 
 if __name__ == "__main__":
-    pass
-    # TODO : test dropout and weight decay against overfitting. Use sklearn metrics (f1, accuracy, confusion matrix) to evaluate the models
+    # Test dictionary generation
+    from loader import get_device, get_train_test_split_sets
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+    from word_embedding import DictionaryEmbedder, dictionary_from_data
+
+    # Load the data
+    (
+        X_train,
+        y_train,
+        train_adjacency_matrix,
+        X_test,
+        y_test,
+        test_adjacency_matrix,
+    ) = get_train_test_split_sets(0.2)
+
+    # Prepare both text embedders
+    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.6)
+    embedder = DictionaryEmbedder(words)
+    bert = SentenceTransformer("all-MiniLM-L6-v2")
+
+    # Encode all data
+    X_train_bert = bert.encode(X_train, show_progress_bar=True)
+    X_train_dict = embedder.encode_batch(X_train, show_progress=True)
+    X_test_bert = bert.encode(X_test, show_progress_bar=True)
+    X_test_dict = embedder.encode_batch(X_test, show_progress=True)
+
+    # Instanciate nn models
+    embed_dim = 1
+    hidden_dim = 1
+    bert_lstm = Lab8_LSTM(X_train_bert[0].shape[0], embed_dim, hidden_dim, 1)
+    dict_lstm = Lab8_LSTM(embedder.size(), embed_dim, hidden_dim, 1)
+
+    # Move to GPU
+    device = get_device()
+    # Move models
+    bert_lstm.to(device)
+    dict_lstm.to(device)
+    # Move X data
+    X_train_bert = torch.FloatTensor(X_train_bert).to(device)
+    X_train_dict = torch.FloatTensor(X_train_dict).to(device)
+    X_test_bert = torch.FloatTensor(X_test_bert).to(device)
+    X_test_dict = torch.FloatTensor(X_test_dict).to(device)
+    # Move y labels
+    y_train = torch.FloatTensor(y_train).to(device).view(-1, 1)
+    y_test = torch.FloatTensor(y_test).to(device).view(-1, 1)
+
+    # Loss function and optimizers
+    criterion = nn.BCELoss()
+    learning_rate = 0.01
+    bert_optimizer = torch.optim.Adam(bert_lstm.parameters(), lr=learning_rate)
+    dict_optimizer = torch.optim.Adam(dict_lstm.parameters(), lr=learning_rate)
+
+    # TODO : train the models, see how well they perform, etc...
