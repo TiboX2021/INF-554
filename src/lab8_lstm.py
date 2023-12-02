@@ -8,9 +8,7 @@ class Lab8_LSTM(nn.Module):
     This model uses text data only (no graph data).
     """
 
-    def __init__(
-        self, vocab_size: int, embed_dim: int, hidden_dim: int, num_class: int
-    ):
+    def __init__(self, embed_dim: int, hidden_dim: int, num_class: int):
         """Instanciate a Lab8_LSTM Model.
 
         Params:
@@ -20,28 +18,20 @@ class Lab8_LSTM(nn.Module):
             - num_class (int) : the number of output classes. For binary classification, this parameter must be set to 1.
         """
         super().__init__()
-        self.hidden_dim = hidden_dim
-
         # Layers
-        self.embedding = nn.Embedding(vocab_size, embed_dim)
         self.lstm = nn.LSTM(
             embed_dim, hidden_dim, num_layers=1, bidirectional=False, batch_first=True
         )
         self.fc = nn.Linear(hidden_dim, num_class)
 
     def forward(self, text: torch.Tensor):
-        # 1st embedding layer
-        text = self.embedding(text)
+        output, _ = self.lstm(text)
 
-        _output, (hidden, _cell) = self.lstm(text)
-
-        x = hidden.view(-1, self.hidden_dim)
-
-        x = self.fc(x)  # Linear layer
+        x = self.fc(output)  # Linear layer
 
         return (
             F.sigmoid(x),
-            hidden,
+            output,
         )  # Binary classification : sigmoid [0,1]. Also return the hidden state embeddings
 
 
@@ -49,7 +39,7 @@ if __name__ == "__main__":
     # Test dictionary generation
     from loader import get_device, get_train_test_split_sets
     from sentence_transformers import SentenceTransformer
-    from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+    from utils import train_model
     from word_embedding import DictionaryEmbedder, dictionary_from_data
 
     # Load the data
@@ -63,21 +53,20 @@ if __name__ == "__main__":
     ) = get_train_test_split_sets(0.2)
 
     # Prepare both text embedders
-    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.6)
+    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.5)
     embedder = DictionaryEmbedder(words)
     bert = SentenceTransformer("all-MiniLM-L6-v2")
 
     # Encode all data
     X_train_bert = bert.encode(X_train, show_progress_bar=True)
-    X_train_dict = embedder.encode_batch(X_train, show_progress=True)
     X_test_bert = bert.encode(X_test, show_progress_bar=True)
+    X_train_dict = embedder.encode_batch(X_train, show_progress=True)
     X_test_dict = embedder.encode_batch(X_test, show_progress=True)
 
     # Instanciate nn models
-    embed_dim = 1
-    hidden_dim = 1
-    bert_lstm = Lab8_LSTM(X_train_bert[0].shape[0], embed_dim, hidden_dim, 1)
-    dict_lstm = Lab8_LSTM(embedder.size(), embed_dim, hidden_dim, 1)
+    hidden_dim = 32  # TODO : update this parameter, and the hidden layers of the LSTM
+    bert_lstm = Lab8_LSTM(X_train_bert[0].shape[0], hidden_dim, 1)
+    dict_lstm = Lab8_LSTM(embedder.size(), hidden_dim, 1)
 
     # Move to GPU
     device = get_device()
@@ -99,4 +88,22 @@ if __name__ == "__main__":
     bert_optimizer = torch.optim.Adam(bert_lstm.parameters(), lr=learning_rate)
     dict_optimizer = torch.optim.Adam(dict_lstm.parameters(), lr=learning_rate)
 
-    # TODO : train the models, see how well they perform, etc...
+    # Train the models
+    print("Training BERT LSTM model...")
+    train_model(
+        bert_lstm,
+        bert_optimizer,
+        criterion,
+        X_train_bert,
+        y_train,
+        epochs=100,
+    )
+    print("Training Dictionary LSTM model...")
+    train_model(
+        dict_lstm,
+        dict_optimizer,
+        criterion,
+        X_train_dict,
+        y_train,
+        epochs=100,
+    )
