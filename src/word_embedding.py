@@ -5,9 +5,6 @@ import numpy.typing as npt
 from loader import get_full_training_sets
 from tqdm import tqdm
 
-# Ratio of positive utterances (for normalization of word occurrences)
-POSITIVE_RATIO = 0.1830274
-
 
 def words_label_count():
     """Count the occurrence of each word in utterances of each label.
@@ -163,7 +160,10 @@ class DictionaryEmbedder:
             if word in self.dictionary_index_lookup:
                 vector[self.dictionary_index_lookup[word]] += 1
 
-        return vector
+        if vector.sum() == 0:
+            return vector
+
+        return (vector - vector.mean()) / vector.std()
 
     def encode_batch(self, strings: Iterable[str], show_progress: bool = True):
         """Encode a batch of strings using the given dictionary."""
@@ -182,7 +182,11 @@ class DictionaryEmbedder:
 if __name__ == "__main__":
     # Test dictionary generation
     from loader import get_train_test_split_sets
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
+    from sklearn.tree import DecisionTreeClassifier
 
+    # Load the data
     (
         X_train,
         y_train,
@@ -192,11 +196,57 @@ if __name__ == "__main__":
         test_adjacency_matrix,
     ) = get_train_test_split_sets(0.2, 0)
 
-    words = dictionary_from_data(X_train, y_train)
-
+    # Prepare both text embedders
+    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.5)
     embedder = DictionaryEmbedder(words)
-    print("Embedder size :", embedder.size())
+    bert = SentenceTransformer("all-MiniLM-L6-v2")
 
-    print("Embedding", len(X_train), "utterances...")
-    result = embedder.encode_batch(X_train)
+    # Encode all data
+    X_train_bert = bert.encode(X_train, show_progress_bar=True)
+    X_train_dict = embedder.encode_batch(X_train, show_progress=True)
+    X_test_bert = bert.encode(X_test, show_progress_bar=True)
+    X_test_dict = embedder.encode_batch(X_test, show_progress=True)
+
+    # Prepare both classifiers. The parameters prevent overfitting
+    bert_clf = DecisionTreeClassifier(
+        max_depth=5, min_samples_split=10, min_samples_leaf=5, random_state=0
+    )
+    dict_clf = DecisionTreeClassifier(
+        max_depth=5, min_samples_split=10, min_samples_leaf=5, random_state=0
+    )
+
+    # Train both classifiers
+    print("Training BERT classifier...")
+    bert_clf.fit(X_train_bert, y_train)
     print("Done.")
+
+    print("Training dictionary classifier...")
+    dict_clf.fit(X_train_dict, y_train)
+    print("Done.")
+
+    # Test both classifiers
+    print("Testing BERT classifier...")
+    bert_train_predict = bert_clf.predict(X_train_bert)
+    bert_test_predict = bert_clf.predict(X_test_bert)
+    print("Done.")
+
+    print("Testing dictionary classifier...")
+    dict_train_predict = dict_clf.predict(X_train_dict)
+    dict_test_predict = dict_clf.predict(X_test_dict)
+    print("Done.")
+
+    # Compare scores
+    print("BERT training score :", accuracy_score(y_train, bert_train_predict))
+    print("BERT testing score :", accuracy_score(y_test, bert_test_predict))
+    print("Dictionary training score :", accuracy_score(y_train, dict_train_predict))
+    print("Dictionary testing score :", accuracy_score(y_test, dict_test_predict))
+
+    # Compare confusion matrices
+    print("BERT confusion matrix :")
+    print(confusion_matrix(y_test, bert_test_predict))
+    print("Dictionary confusion matrix :")
+    print(confusion_matrix(y_test, dict_test_predict))
+
+    # Compare F1 scores
+    print("BERT F1 score :", f1_score(y_test, bert_test_predict))
+    print("Dictionary F1 score :", f1_score(y_test, dict_test_predict))
