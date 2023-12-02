@@ -194,10 +194,10 @@ if __name__ == "__main__":
         X_test,
         y_test,
         test_adjacency_matrix,
-    ) = get_train_test_split_sets(0.2, 0)
+    ) = get_train_test_split_sets(0.2)
 
     # Prepare both text embedders
-    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.5)
+    words = dictionary_from_data(X_train, y_train, percentile=95, score_threshold=0.6)
     embedder = DictionaryEmbedder(words)
     bert = SentenceTransformer("all-MiniLM-L6-v2")
 
