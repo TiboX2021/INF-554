@@ -118,6 +118,9 @@ if __name__ == "__main__":
         accuracy = (predicted.cpu() == y_train.cpu()).sum().item() / output.size()[0]
         print("Train accuracy for epoch", epoch, "is", round(accuracy, 2))
 
+    # Set model in evaluation mode (disable dropout)
+    model.eval()
+
     # Final test on training data
     train_output, train_embeddings = model(X_train, train_adjacency_matrix)
     predicted = train_output.ge(0.5).type(torch.FloatTensor)

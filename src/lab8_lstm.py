@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # Test dictionary generation
     from loader import get_device, get_train_test_split_sets
     from sentence_transformers import SentenceTransformer
-    from utils import train_model
+    from utils import test_model, train_model
     from word_embedding import DictionaryEmbedder, dictionary_from_data
 
     # Load the data
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     X_test_dict = embedder.encode_batch(X_test, show_progress=True)
 
     # Instanciate nn models
-    hidden_dim = 32  # TODO : update this parameter, and the hidden layers of the LSTM
+    hidden_dim = 64
     bert_lstm = Lab8_LSTM(X_train_bert[0].shape[0], hidden_dim, 1)
     dict_lstm = Lab8_LSTM(embedder.size(), hidden_dim, 1)
 
@@ -89,6 +89,7 @@ if __name__ == "__main__":
     dict_optimizer = torch.optim.Adam(dict_lstm.parameters(), lr=learning_rate)
 
     # Train the models
+    epochs = 300
     print("Training BERT LSTM model...")
     train_model(
         bert_lstm,
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         criterion,
         X_train_bert,
         y_train,
-        epochs=100,
+        epochs=epochs,
     )
     print("Training Dictionary LSTM model...")
     train_model(
@@ -105,5 +106,14 @@ if __name__ == "__main__":
         criterion,
         X_train_dict,
         y_train,
-        epochs=100,
+        epochs=epochs,
     )
+
+    # Test models against training and testing data
+    print("Testing BERT LSTM model...")
+    test_model(bert_lstm, X_train_bert, y_train, False)
+    test_model(bert_lstm, X_test_bert, y_test, False)
+
+    print("Testing Dictionary LSTM model...")
+    test_model(dict_lstm, X_train_dict, y_train, False)
+    test_model(dict_lstm, X_test_dict, y_test, False)

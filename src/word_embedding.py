@@ -174,7 +174,7 @@ class DictionaryEmbedder:
         for string in tqdm(strings, disable=not show_progress):
             vectors.append(self.encode(string))
 
-        return vectors
+        return np.array(vectors)
 
     def size(self) -> int:
         """Return the size of the dictionary, which is the size of the embedded vector space."""
