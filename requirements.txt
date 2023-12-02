@@ -19,3 +19,6 @@ matplotlib
 pandas
 ipykernel
 seaborn
+
+# Progress bars (already installed via sentence-transformers)
+tqdm
