@@ -36,6 +36,96 @@ def build_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]])
     return adjacency_matrix
 
 
+def build_32_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]]):
+    """Build a 3D adjacency matrix from a list of edge datasets.
+
+    Params:
+        - edges_iterable (Iterable[tuple[str, np.ndarray]]) : an iterable of tuples containing the name of the graph and the edges + labels of the graph in str format
+
+    Edge labels are encoded in the 3D dimensions. As there are 16 different edge labels, we use 32 dimensions.
+        - 1 to 16 encore forward edges
+        - 17 to 32 encode backward edges
+
+    A NN processing can be done on the matrix in order to aggregate the 32 dimensions into 1, for classic adjacency multiplication later-on.
+
+    TODO : NN matrix preprocessing : see how to replicate the same thing.
+
+    NOTE :
+        - The superior triangle of the matrix is used to encode backward edges.
+        - The inferior triangle of the matrix is used to encode forward edges.
+    """
+
+    total_edge_count = 0
+    for edges in edges_iterable:
+        total_edge_count += edges[1].shape[0]
+
+    # Initialize sparse matrix data
+    data = np.ones(total_edge_count * 2, dtype=np.int32)
+
+    # We will fill the following arrays with the coordinates
+    rows = np.zeros(total_edge_count * 2, dtype=np.int32)
+    cols = np.zeros(total_edge_count * 2, dtype=np.int32)
+    depths = np.zeros(total_edge_count * 2, dtype=np.int32)
+
+    labels = [
+        "Continuation",
+        "Explanation",
+        "Elaboration",
+        "Acknowledgement",
+        "Comment",
+        "Result",
+        "Question-answer_pair",
+        "Contrast",
+        "Clarification_question",
+        "Background",
+        "Narration",
+        "Alternation",
+        "Conditional",
+        "Q-Elab",
+        "Correction",
+        "Parallel",
+    ]
+    label_lookup = {label: i for i, label in enumerate(labels)}
+
+    node_count = 0  # Because each edge ndarray starts at node index 0, we must offset the consecutive ones.
+    current_edge_index = 0
+
+    for _, labeled_edges in edges_iterable:
+        # Offset the node ids in relation to the previous subgraphs
+        edges = labeled_edges[:, [0, 2]].astype(int)  # Remove the labels
+        edge_labels = labeled_edges[:, 1]
+
+        # Node index offsetting
+        max_index = edges.max() + 1
+        edges += node_count
+        node_count += max_index
+
+        # Fill the rows
+        for edge, label in zip(edges, edge_labels):
+            label = label_lookup[label]
+
+            # Forward edge
+            rows[current_edge_index] = edge[0]
+            cols[current_edge_index] = edge[1]
+            depths[current_edge_index] = label
+
+            # Backward edge
+            rows[current_edge_index + 1] = edge[1]
+            cols[current_edge_index + 1] = edge[0]
+            depths[current_edge_index + 1] = label + 16
+
+    # Create the sparse tensor holding the adjacency matrix
+    # TODO : matrix preprocessing operations ?
+    tensor_shape = (node_count, node_count, 32)
+    sparse_3d_tensor = torch.sparse_coo_tensor(
+        indices=torch.stack([depths, rows, cols]),  # type: ignore
+        values=data,  # type: ignore
+        size=tensor_shape,
+    )
+
+    return sparse_3d_tensor
+
+
 def normalise_adjacency(matrix: sp.coo_matrix) -> sp.csr_matrix:
     """Normalize and preprocess a graph adjacency matrix for use in a GCN model"""
     n = matrix.shape[0]
