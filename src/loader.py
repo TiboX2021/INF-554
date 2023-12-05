@@ -4,6 +4,7 @@ from typing import TypedDict
 
 import numpy as np
 import torch
+from torch import Tensor
 from utils import build_adjacency_from_edges
 
 
@@ -164,6 +165,37 @@ def get_full_training_sets():
             y_train.extend(training_labels[transcription_id])
 
     return X_train, y_train
+
+
+def get_full_preembedded_training_sets(bert_embedder: str):
+    """Load all training data and labels, but uses the precomputed global training embeddings instead of loading the raw text data"""
+    from torch import FloatTensor
+
+    # Load the precomputed embeddings
+    X_train: Tensor = torch.load(
+        training_data_path / Path(f"training_{bert_embedder}.pth")
+    )
+
+    # Load the labels
+    with open(training_labels_path / "training_labels.json", "r") as file:
+        training_labels = json.load(file)
+
+    # Build the training sets in the order of the training_set list
+    y_train = []
+    for transcription_id in training_set:
+        y_train.extend(training_labels[transcription_id])
+
+    return FloatTensor(X_train), FloatTensor(y_train).view(-1, 1)
+
+
+def get_full_preembedded_test_sets(bert_embedder: str):
+    """Load all test data, but uses the precomputed global test embeddings instead of loading the raw text data"""
+    from torch import FloatTensor
+
+    # Load the precomputed embeddings
+    X_test: Tensor = torch.load(testing_data_path / Path(f"test_{bert_embedder}.pth"))
+
+    return FloatTensor(X_test)
 
 
 def get_train_test_split_sets(test_size: float = 0.2, random_state: int | None = None):
