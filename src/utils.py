@@ -36,7 +36,7 @@ def build_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]])
     return adjacency_matrix
 
 
-def build_32_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]]):
+def build_3d_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]]):
     """Build a 3D adjacency matrix from a list of edge datasets.
 
     Params:
@@ -50,7 +50,7 @@ def build_32_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray
 
     TODO : NN matrix preprocessing : see how to replicate the same thing.
 
-    NOTE :
+    NOTE : à vérifier pour les ops de multiplication + préprocessing
         - The superior triangle of the matrix is used to encode backward edges.
         - The inferior triangle of the matrix is used to encode forward edges.
     """
@@ -63,9 +63,9 @@ def build_32_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray
     data = np.ones(total_edge_count * 2, dtype=np.int32)
 
     # We will fill the following arrays with the coordinates
-    rows = np.zeros(total_edge_count * 2, dtype=np.int32)
-    cols = np.zeros(total_edge_count * 2, dtype=np.int32)
-    depths = np.zeros(total_edge_count * 2, dtype=np.int32)
+    rows = torch.zeros(total_edge_count * 2)
+    cols = torch.zeros(total_edge_count * 2)
+    depths = torch.zeros(total_edge_count * 2)
 
     labels = [
         "Continuation",
@@ -117,8 +117,9 @@ def build_32_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray
     # Create the sparse tensor holding the adjacency matrix
     # TODO : matrix preprocessing operations ?
     tensor_shape = (node_count, node_count, 32)
+
     sparse_3d_tensor = torch.sparse_coo_tensor(
-        indices=torch.stack([depths, rows, cols]),  # type: ignore
+        indices=torch.stack([depths, rows, cols]),
         values=data,  # type: ignore
         size=tensor_shape,
     )
