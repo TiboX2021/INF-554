@@ -346,8 +346,7 @@ def test_graph_model(
     f1 = f1_score(detach_y_test, detach_output)
 
     # Print metrics
-    print(f"Accuracy : {accuracy:.2f}")
-    print(f"F1 score : {f1:.2f}")
+    print(f"Accuracy : {accuracy:.2f} | F1 score : {f1:.2f}")
 
     if show_cm:
         cm = confusion_matrix(detach_y_test, detach_output)

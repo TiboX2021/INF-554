@@ -139,7 +139,7 @@ if __name__ == "__main__":
     #                                          GRAPH  TRAINING                                           #
     ######################################################################################################
 
-    graph_epochs = 150
+    graph_epochs = 200
 
     for epoch in range(graph_epochs):
         graph_model.train()
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         optimizer.step()
 
         if epoch % 10 == 0:
-            print(f"Epoch {epoch} : {loss.item()}", end=" --- ")
+            print(f"Epoch {epoch} : {loss.item():.2f}", end=" --- ")
             test_graph_model(graph_model, test_hetero_data, y_test, False)
 
     # Final test
