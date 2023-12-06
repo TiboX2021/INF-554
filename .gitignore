@@ -13,3 +13,4 @@ word_counts.json
 
 # Ignore all model weights / tensors
 *.pth
+*.pt

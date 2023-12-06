@@ -171,21 +171,28 @@ def get_full_preembedded_training_sets(bert_embedder: str):
     """Load all training data and labels, but uses the precomputed global training embeddings instead of loading the raw text data"""
     from torch import FloatTensor
 
-    # Load the precomputed embeddings
-    X_train: Tensor = torch.load(
-        training_data_path / Path(f"training_{bert_embedder}.pth")
-    )
+    try:
+        # Load the precomputed embeddings
+        X_train: Tensor = torch.load(
+            training_data_path / Path(f"training_{bert_embedder}.pth")
+        )
 
-    # Load the labels
-    with open(training_labels_path / "training_labels.json", "r") as file:
-        training_labels = json.load(file)
+        # Load the labels
+        with open(training_labels_path / "training_labels.json", "r") as file:
+            training_labels = json.load(file)
 
-    # Build the training sets in the order of the training_set list
-    y_train = []
-    for transcription_id in training_set:
-        y_train.extend(training_labels[transcription_id])
+        # Build the training sets in the order of the training_set list
+        y_train = []
+        for transcription_id in training_set:
+            y_train.extend(training_labels[transcription_id])
 
-    return FloatTensor(X_train), FloatTensor(y_train).view(-1, 1)
+        return FloatTensor(X_train), FloatTensor(y_train).view(-1, 1)
+
+    except FileNotFoundError:
+        print(
+            "You need to build the precomputed embeddings first. Run build_all_pth() from src/loader.py"
+        )
+        exit(1)
 
 
 def get_full_preembedded_test_sets(bert_embedder: str):
