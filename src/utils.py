@@ -5,6 +5,7 @@ import scipy.sparse as sp
 import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from torch import Tensor, nn, optim
+from torch_geometric.data import HeteroData
 from visualize import detach_tensor, plot_2D_embeddings
 
 ############################################################################################################
@@ -322,3 +323,35 @@ def build_hetero_data(embeddings: Tensor, edges: np.ndarray):
     data["utterances", "continues", "utterances"].edge_attr = edge_labels
 
     return data
+
+
+def test_graph_model(
+    model: nn.Module, data: HeteroData, y_test: Tensor, show_embeddings: bool = False
+):
+    """Test a graph model on the input Hetero dataset"""
+
+    # Sets model in evaluation mode (disable dropout, etc)
+    model.eval()
+    with torch.no_grad():
+        # Forward pass
+        output, _embeddings = model(data.x_dict, data.edge_index_dict)
+
+    # Detach tensors and convert them to numpy arrays
+    detach_output = detach_tensor(output.ge(0.5)).reshape(-1)
+    detach_y_test = detach_tensor(y_test).reshape(-1)
+
+    # Evaluate metrics
+    accuracy = accuracy_score(detach_y_test, detach_output)
+    f1 = f1_score(detach_y_test, detach_output)
+    cm = confusion_matrix(detach_y_test, detach_output)
+
+    # Print metrics
+    print(f"Accuracy : {accuracy:.2f}")
+    print(f"F1 score : {f1:.2f}")
+    print("Confusion matrix :")
+    print(cm)
+
+    # Plot embeddings
+    if show_embeddings:
+        plot_2D_embeddings(detach_tensor(_embeddings), detach_y_test)
+    model.train()

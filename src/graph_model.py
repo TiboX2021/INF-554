@@ -1,21 +1,38 @@
 """
 Graph-based model
+TODO : currently, only forward edges are implemented. We can add 16 more dimensions for backward edges.
 """
+from typing import TypedDict
+
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 from torch_geometric.nn import SAGEConv
 
 
+class GraphOutput(TypedDict):
+    """Output of the graph's forward pass"""
+
+    utterances: Tensor
+
+
 class GNN(nn.Module):
+    """
+    TODO : try different graph models. This one was taken from the torch_geometric heterogeneous graphs example.
+    This is a homogeneous graph model, but it can be converted to a heterogeneous graph model using the to_hetero function.
+    """
+
     def __init__(self, hidden_channels: int, out_channels: int):
         super().__init__()
+        # SAGE Conv samples information from neighbor nodes. It is a graph convolutional layer.
+        # NOTE : we may need only one ? A voir...
         self.conv1 = SAGEConv((-1, -1), hidden_channels)
         self.conv2 = SAGEConv((-1, -1), out_channels)
 
     def forward(self, x: Tensor, edge_index: Tensor):
         x = self.conv1(x, edge_index).relu()
         x = self.conv2(x, edge_index)
-        return x
+        return F.sigmoid(x)  # Sigmoid for binary classification
 
 
 if __name__ == "__main__":
@@ -69,6 +86,7 @@ if __name__ == "__main__":
     y_test = y_test.to(device)
 
     # Train model
+    # DEBUG : remettre les epochs à 150. Pour l'instant à 10 pour debug le training du graphe
     train_model(model, optimizer, criterion, X_train, y_train, 10, X_test, y_test)
 
     # Test model
@@ -81,14 +99,18 @@ if __name__ == "__main__":
     """In this part, we use the produced RNN embeddings to feed a graph-based model.
     """
     from torch_geometric.nn import to_hetero
-    from utils import build_hetero_data
+    from utils import build_hetero_data, test_graph_model
 
-    # Detach the tensors from their previous model
+    # Compute embeddings from the RNN model
     model.eval()
     _, X_train = model.forward(X_train)
     _, X_test = model.forward(X_test)
+
+    # Detach the tensors from their previous model
     y_train = y_train.detach()
     y_test = y_test.detach()
+    X_train = X_train.detach()
+    X_test = X_test.detach()
 
     print(X_train.shape)
     print(y_train.shape)
@@ -114,4 +136,23 @@ if __name__ == "__main__":
     # Move everything to GPU
     graph_model.to(device)
 
-    # TODO : use the model with the data
+    ######################################################################################################
+    #                                          GRAPH  TRAINING                                           #
+    ######################################################################################################
+
+    graph_epochs = 150
+
+    for epoch in range(graph_epochs):
+        graph_model.train()
+        optimizer.zero_grad()
+        out: GraphOutput = graph_model(
+            train_hetero_data.x_dict, train_hetero_data.edge_index_dict
+        )
+
+        loss = criterion(out["utterances"], y_train)
+        loss.backward()
+        optimizer.step()
+
+        if epoch % 10 == 0:
+            print(f"Epoch {epoch} : {loss.item()}", end=" --- ")
+            test_graph_model(graph_model, test_hetero_data, y_test)
