@@ -4,7 +4,8 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
-from torch import nn, optim
+from torch import Tensor, nn, optim
+from torch_geometric.data import HeteroData
 from visualize import detach_tensor, plot_2D_embeddings
 
 ############################################################################################################
@@ -34,6 +35,97 @@ def build_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]])
     )
 
     return adjacency_matrix
+
+
+def build_3d_adjacency_from_edges(edges_iterable: Iterable[tuple[str, np.ndarray]]):
+    """Build a 3D adjacency matrix from a list of edge datasets.
+
+    Params:
+        - edges_iterable (Iterable[tuple[str, np.ndarray]]) : an iterable of tuples containing the name of the graph and the edges + labels of the graph in str format
+
+    Edge labels are encoded in the 3D dimensions. As there are 16 different edge labels, we use 32 dimensions.
+        - 1 to 16 encore forward edges
+        - 17 to 32 encode backward edges
+
+    A NN processing can be done on the matrix in order to aggregate the 32 dimensions into 1, for classic adjacency multiplication later-on.
+
+    TODO : NN matrix preprocessing : see how to replicate the same thing.
+
+    NOTE : à vérifier pour les ops de multiplication + préprocessing
+        - The superior triangle of the matrix is used to encode backward edges.
+        - The inferior triangle of the matrix is used to encode forward edges.
+    """
+
+    total_edge_count = 0
+    for edges in edges_iterable:
+        total_edge_count += edges[1].shape[0]
+
+    # Initialize sparse matrix data
+    data = np.ones(total_edge_count * 2, dtype=np.int32)
+
+    # We will fill the following arrays with the coordinates
+    rows = torch.zeros(total_edge_count * 2)
+    cols = torch.zeros(total_edge_count * 2)
+    depths = torch.zeros(total_edge_count * 2)
+
+    labels = [
+        "Continuation",
+        "Explanation",
+        "Elaboration",
+        "Acknowledgement",
+        "Comment",
+        "Result",
+        "Question-answer_pair",
+        "Contrast",
+        "Clarification_question",
+        "Background",
+        "Narration",
+        "Alternation",
+        "Conditional",
+        "Q-Elab",
+        "Correction",
+        "Parallel",
+    ]
+    label_lookup = {label: i for i, label in enumerate(labels)}
+
+    node_count = 0  # Because each edge ndarray starts at node index 0, we must offset the consecutive ones.
+    current_edge_index = 0
+
+    for _, labeled_edges in edges_iterable:
+        # Offset the node ids in relation to the previous subgraphs
+        edges = labeled_edges[:, [0, 2]].astype(int)  # Remove the labels
+        edge_labels = labeled_edges[:, 1]
+
+        # Node index offsetting
+        max_index = edges.max() + 1
+        edges += node_count
+        node_count += max_index
+
+        # Fill the rows
+        for edge, label in zip(edges, edge_labels):
+            label = label_lookup[label]
+
+            # Forward edge
+            rows[current_edge_index] = edge[0]
+            cols[current_edge_index] = edge[1]
+            depths[current_edge_index] = label
+
+            # Backward edge
+            rows[current_edge_index + 1] = edge[1]
+            cols[current_edge_index + 1] = edge[0]
+            depths[current_edge_index + 1] = label + 16
+
+    # Create the sparse tensor holding the adjacency matrix
+    # TODO : matrix preprocessing operations ?
+    tensor_shape = (node_count, node_count, 32)
+
+    sparse_3d_tensor = torch.sparse_coo_tensor(
+        indices=torch.stack([depths, rows, cols]),
+        values=data,  # type: ignore
+        size=tensor_shape,
+    )
+
+    return sparse_3d_tensor
 
 
 def normalise_adjacency(matrix: sp.coo_matrix) -> sp.csr_matrix:
@@ -79,6 +171,8 @@ def train_model(
     X_train: torch.Tensor,
     y_train: torch.Tensor,
     epochs: int,
+    X_test: torch.Tensor | None = None,
+    y_test: torch.Tensor | None = None,
 ):
     """Trains a Torch model.
     This function expects that the `forward` method of the model returns a tuple of two elements:
@@ -92,6 +186,10 @@ def train_model(
         - X_train (torch.Tensor) : the training data.
         - y_train (torch.Tensor) : the training labels.
         - epochs (int) : the number of epochs to train the model for.
+
+    Optional params
+        - X_test (torch.Tensor) : the test data.
+        - y_test (torch.Tensor) : the test labels.
     """
     for epoch in range(epochs):
         model.train()
@@ -109,12 +207,34 @@ def train_model(
 
         # Print loss once every 10 epochs
         if epoch % 10 == 0:
+            test_msg = ""
+
+            if X_test is not None and y_test is not None:
+                model.eval()
+                with torch.no_grad():
+                    # Forward pass
+                    test_output, _embeddings = model(X_test)
+
+                # Detach tensors and convert them to numpy arrays
+                detach_output = detach_tensor(test_output.ge(0.5)).reshape(-1)
+                detach_y_test = detach_tensor(y_test).reshape(-1)
+
+                # Evaluate metrics
+                accuracy = accuracy_score(detach_y_test, detach_output)
+                f1 = f1_score(detach_y_test, detach_output)
+                test_msg = (
+                    f" | test accuracy = {accuracy:.2f} | test f1_score = {f1:.2f}"
+                )
+
+                model.train()
+
             # Evaluate accuracy and f1_score on the current training batch
             accuracy = accuracy_score(y_train.cpu(), output.cpu().ge(0.5))
             f1 = f1_score(y_train.cpu(), output.cpu().ge(0.5))
 
             print(
-                f"Epoch {epoch} : loss = {loss.item():.2f} | accuracy = {accuracy:.2f} | f1_score = {f1:.2f}"
+                f"Epoch {epoch} : loss = {loss.item():.2f} | accuracy = {accuracy:.2f} | f1_score = {f1:.2f}",
+                test_msg,
             )
 
 
@@ -160,4 +280,77 @@ def test_model(
     # Plot embeddings
     if show_embeddings:
         plot_2D_embeddings(detach_tensor(_embeddings), detach_y_test)
+    model.train()
+
+
+def build_hetero_data(embeddings: Tensor, edges: np.ndarray):
+    """Build the graph heterogeneous data from a tensor of node embeddings and a numpy array of edges with their labels
+
+    The 16 edge labels are encoded as a size-16 vector of 0s and 1s. The only 1 represents the correct label for this edge
+
+    Params:
+        - embeddings (Tensor) (NODES, EMBED_SIZE) : the embeddings of the nodes
+        - edges (np.ndarray[str]) (EDGES, 3) : the edges with their labels
+
+    Returns:
+        - data (HeteroData) : the heterogeneous data
+    """
+    from loader import np_edge_label_to_index
+    from torch_geometric.data import HeteroData
+
+    data = HeteroData()
+
+    # Add node embeddings to the heterogeneous data
+    data["utterances"].x = embeddings
+
+    # Add edges to the heterogeneous data
+    int_edges = edges[:, [0, 2]].astype(int)  # Size : (EDGES, 2)
+    # Size : (2, EDGES)
+    # NOTE : int64 are expected for the index type, so we must build the int64/long tensor beforehand
+    data["utterances", "continues", "utterances"].edge_index = torch.LongTensor(
+        int_edges.T
+    )
+
+    # Add the edge labels to the heterogeneous data
+    str_labels = edges[:, 1]  # Size : (EDGES,)
+    int_labels = np_edge_label_to_index(str_labels)  # Size : (EDGES,)
+
+    # Build the vectors of 0s and 1s
+    edge_labels = np.zeros((int_labels.size, 16), dtype=np.int32)  # Size : (EDGES, 16)
+    edge_labels[np.arange(len(int_labels)), int_labels] = 1
+
+    # Size : (EDGES, EDGE_LABELS)
+    data["utterances", "continues", "utterances"].edge_attr = edge_labels
+
+    return data
+
+
+def test_graph_model(
+    model: nn.Module, data: HeteroData, y_test: Tensor, show_cm: bool = True
+):
+    """Test a graph model on the input Hetero dataset"""
+
+    # Sets model in evaluation mode (disable dropout, etc)
+    model.eval()
+    with torch.no_grad():
+        # Forward pass
+        output = model(data.x_dict, data.edge_index_dict)
+    output = output["utterances"]
+
+    # Detach tensors and convert them to numpy arrays
+    detach_output = detach_tensor(output.ge(0.5)).reshape(-1)
+    detach_y_test = detach_tensor(y_test).reshape(-1)
+
+    # Evaluate metrics
+    accuracy = accuracy_score(detach_y_test, detach_output)
+    f1 = f1_score(detach_y_test, detach_output)
+
+    # Print metrics
+    print(f"Accuracy : {accuracy:.2f} | F1 score : {f1:.2f}")
+
+    if show_cm:
+        cm = confusion_matrix(detach_y_test, detach_output)
+        print("Confusion matrix :")
+        print(cm)
+
     model.train()
