@@ -170,6 +170,8 @@ def train_model(
     X_train: torch.Tensor,
     y_train: torch.Tensor,
     epochs: int,
+    X_test: torch.Tensor | None = None,
+    y_test: torch.Tensor | None = None,
 ):
     """Trains a Torch model.
     This function expects that the `forward` method of the model returns a tuple of two elements:
@@ -183,6 +185,10 @@ def train_model(
         - X_train (torch.Tensor) : the training data.
         - y_train (torch.Tensor) : the training labels.
         - epochs (int) : the number of epochs to train the model for.
+
+    Optional params
+        - X_test (torch.Tensor) : the test data.
+        - y_test (torch.Tensor) : the test labels.
     """
     for epoch in range(epochs):
         model.train()
@@ -200,12 +206,34 @@ def train_model(
 
         # Print loss once every 10 epochs
         if epoch % 10 == 0:
+            test_msg = ""
+
+            if X_test is not None and y_test is not None:
+                model.eval()
+                with torch.no_grad():
+                    # Forward pass
+                    test_output, _embeddings = model(X_test)
+
+                # Detach tensors and convert them to numpy arrays
+                detach_output = detach_tensor(test_output.ge(0.5)).reshape(-1)
+                detach_y_test = detach_tensor(y_test).reshape(-1)
+
+                # Evaluate metrics
+                accuracy = accuracy_score(detach_y_test, detach_output)
+                f1 = f1_score(detach_y_test, detach_output)
+                test_msg = (
+                    f" | test accuracy = {accuracy:.2f} | test f1_score = {f1:.2f}"
+                )
+
+                model.train()
+
             # Evaluate accuracy and f1_score on the current training batch
             accuracy = accuracy_score(y_train.cpu(), output.cpu().ge(0.5))
             f1 = f1_score(y_train.cpu(), output.cpu().ge(0.5))
 
             print(
-                f"Epoch {epoch} : loss = {loss.item():.2f} | accuracy = {accuracy:.2f} | f1_score = {f1:.2f}"
+                f"Epoch {epoch} : loss = {loss.item():.2f} | accuracy = {accuracy:.2f} | f1_score = {f1:.2f}",
+                test_msg,
             )
 
 
