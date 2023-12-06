@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
-from torch import nn, optim
+from torch import Tensor, nn, optim
 from visualize import detach_tensor, plot_2D_embeddings
 
 ############################################################################################################
@@ -280,3 +280,42 @@ def test_model(
     if show_embeddings:
         plot_2D_embeddings(detach_tensor(_embeddings), detach_y_test)
     model.train()
+
+
+def build_hetero_data(embeddings: Tensor, edges: np.ndarray):
+    """Build the graph heterogeneous data from a tensor of node embeddings and a numpy array of edges with their labels
+
+    The 16 edge labels are encoded as a size-16 vector of 0s and 1s. The only 1 represents the correct label for this edge
+
+    Params:
+        - embeddings (Tensor) (NODES, EMBED_SIZE) : the embeddings of the nodes
+        - edges (np.ndarray[str]) (EDGES, 3) : the edges with their labels
+
+    Returns:
+        - data (HeteroData) : the heterogeneous data
+    """
+    from loader import np_edge_label_to_index
+    from torch_geometric.data import HeteroData
+
+    data = HeteroData()
+
+    # Add node embeddings to the heterogeneous data
+    data["utterances"].x = embeddings
+
+    # Add edges to the heterogeneous data
+    int_edges = edges[:, [0, 2]].astype(int)  # Size : (EDGES, 2)
+    # Size : (2, EDGES)
+    data["utterances", "continues", "utterances"].edge_index = int_edges.T
+
+    # Add the edge labels to the heterogeneous data
+    str_labels = edges[:, 1]  # Size : (EDGES,)
+    int_labels = np_edge_label_to_index(str_labels)  # Size : (EDGES,)
+
+    # Build the vectors of 0s and 1s
+    edge_labels = np.zeros((int_labels.size, 16), dtype=np.int32)  # Size : (EDGES, 16)
+    edge_labels[np.arange(len(int_labels)), int_labels] = 1
+
+    # Size : (EDGES, EDGE_LABELS)
+    data["utterances", "continues", "utterances"].edge_attr = edge_labels
+
+    return data

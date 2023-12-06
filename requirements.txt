@@ -5,6 +5,7 @@ sentence-transformers
 # Recommanded by the kaggle
 scikit-learn
 torch
+torch_geometric
 nltk
 gensim
 networkx
