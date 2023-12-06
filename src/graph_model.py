@@ -86,8 +86,7 @@ if __name__ == "__main__":
     y_test = y_test.to(device)
 
     # Train model
-    # DEBUG : remettre les epochs à 150. Pour l'instant à 10 pour debug le training du graphe
-    train_model(model, optimizer, criterion, X_train, y_train, 10, X_test, y_test)
+    train_model(model, optimizer, criterion, X_train, y_train, 150, X_test, y_test)
 
     # Test model
     test_model(model, X_train, y_train, False)
@@ -155,4 +154,7 @@ if __name__ == "__main__":
 
         if epoch % 10 == 0:
             print(f"Epoch {epoch} : {loss.item()}", end=" --- ")
-            test_graph_model(graph_model, test_hetero_data, y_test)
+            test_graph_model(graph_model, test_hetero_data, y_test, False)
+
+    # Final test
+    test_graph_model(graph_model, test_hetero_data, y_test)

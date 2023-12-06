@@ -511,7 +511,7 @@ def geometric_train_test_split(
             test_edges = np.concatenate((test_edges, recreated_array), axis=0)
 
             # Update the node count
-            node_count = X_train.shape[0]
+            node_count = X_test.shape[0]
 
     # Return the data
     return (
