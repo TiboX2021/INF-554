@@ -305,7 +305,10 @@ def build_hetero_data(embeddings: Tensor, edges: np.ndarray):
     # Add edges to the heterogeneous data
     int_edges = edges[:, [0, 2]].astype(int)  # Size : (EDGES, 2)
     # Size : (2, EDGES)
-    data["utterances", "continues", "utterances"].edge_index = int_edges.T
+    # NOTE : int64 are expected for the index type, so we must build the int64/long tensor beforehand
+    data["utterances", "continues", "utterances"].edge_index = torch.LongTensor(
+        int_edges.T
+    )
 
     # Add the edge labels to the heterogeneous data
     str_labels = edges[:, 1]  # Size : (EDGES,)
