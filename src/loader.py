@@ -234,13 +234,22 @@ def get_full_preembedded_training_sets(bert_embedder: str):
 
 
 def get_full_preembedded_test_sets(bert_embedder: str):
-    """Load all test data, but uses the precomputed global test embeddings instead of loading the raw text data"""
+    """Load all test data, but uses the precomputed global test embeddings instead of loading the raw text data.
+
+    NOTE : because we need to associate the labels with each test file, this function returns a list of tuples :
+    list[(transcription_id, embeddings)]
+    """
     from torch import FloatTensor
 
-    # Load the precomputed embeddings
-    X_test: Tensor = torch.load(testing_data_path / Path(f"test_{bert_embedder}.pth"))
+    embeddings: list[tuple[str, Tensor]] = []
 
-    return FloatTensor(X_test)
+    for transcription_id in test_set:
+        tensor = torch.load(
+            testing_data_path / Path(f"{transcription_id}_{bert_embedder}.pth")
+        )
+        embeddings.append((transcription_id, FloatTensor(tensor)))
+
+    return embeddings
 
 
 def get_train_test_split_sets(test_size: float = 0.2, random_state: int | None = None):

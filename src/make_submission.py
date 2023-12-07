@@ -17,7 +17,7 @@ def make_submission(
     output_path: Path = default_submission_output,
 ):
     """Create a submission CSV file from a label json file output"""
-    with open(input_folder / json_path, "r") as file:
+    with open(json_path, "r") as file:
         test_labels = json.load(file)
 
     file = open(output_folder / output_path, "w")
