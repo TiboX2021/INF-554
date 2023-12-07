@@ -5,7 +5,6 @@ Combine different classifiers and use boosting methods to produce better f1 scor
 Methods yet to be tried :
 
 Boosted classifiers
-* RandomForestClassifier
 * GradientBoostingClassifier
 * AdaBoostClassifier
 
@@ -89,6 +88,25 @@ def nearest_neighbors_classifier():
 ######################################################################################################
 
 
+def random_forest_classifier():
+    """Returns a random forest classifier optimized for this specific task.
+
+    Performance:
+    * accuracy : 0.73
+    * f1 score : 0.53
+    """
+    from sklearn.ensemble import RandomForestClassifier
+
+    return RandomForestClassifier(
+        n_estimators=100,
+        max_depth=5,  # Prevents overfitting
+        min_samples_split=10,
+        min_samples_leaf=5,
+        class_weight="balanced",
+        n_jobs=-1,  # Use all cores
+    )
+
+
 if __name__ == "__main__":
     from loader import get_full_preembedded_training_sets
     from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
@@ -106,7 +124,7 @@ if __name__ == "__main__":
         X_full, y_full, test_size=0.2, random_state=0
     )
 
-    clf = nearest_neighbors_classifier()
+    clf = random_forest_classifier()
 
     print("Fitting the classifier...")
     clf.fit(X_train, y_train)
