@@ -182,6 +182,7 @@ if __name__ == "__main__":
         X_full, y_full, test_size=0.2, random_state=0
     )
 
+    # XXX : CHANGE THIS MODEL TO TEST DIFFERENT TYPES OF CLASSIFIERS
     clf = logistic_regression()
 
     print("Fitting the classifier...")
